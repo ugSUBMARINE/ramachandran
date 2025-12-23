@@ -48,26 +48,48 @@
                         <div class="pdb-title">Summary for <span id="display-pdb-id">-</span></div>
                         <div id="display-filter-info" class="filter-subtitle">All Residues</div>
                     </h3>
-                    <div class="stat-item">
-                        <span class="label">Favoured</span>
-                        <span class="value-group">
-                            <span id="favoured-count" class="value text-success">-</span>
-                            <span id="favoured-percent" class="percent">(-%)</span>
-                        </span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label">Allowed</span>
-                        <span class="value-group">
-                            <span id="allowed-count" class="value text-warning">-</span>
-                            <span id="allowed-percent" class="percent">(-%)</span>
-                        </span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label">Outliers</span>
-                        <span class="value-group">
-                            <span id="outlier-count" class="value text-danger">-</span>
-                            <span id="outlier-percent" class="percent">(-%)</span>
-                        </span>
+                    <div class="stats-grid">
+                        <div class="stats-header-row">
+                            <span></span>
+                            <span class="header-label">Selection</span>
+                            <span class="header-label">Overall</span>
+                        </div>
+
+                        <div class="stats-row">
+                            <span class="label">Favoured</span>
+                            <span class="value-group">
+                                <span id="favoured-count" class="value text-success">-</span>
+                                <span id="favoured-percent" class="percent">(-%)</span>
+                            </span>
+                            <span class="value-group">
+                                <span id="overall-favoured-count" class="value text-success">-</span>
+                                <span id="overall-favoured-percent" class="percent">(-%)</span>
+                            </span>
+                        </div>
+
+                        <div class="stats-row">
+                            <span class="label">Allowed</span>
+                            <span class="value-group">
+                                <span id="allowed-count" class="value text-warning">-</span>
+                                <span id="allowed-percent" class="percent">(-%)</span>
+                            </span>
+                            <span class="value-group">
+                                <span id="overall-allowed-count" class="value text-warning">-</span>
+                                <span id="overall-allowed-percent" class="percent">(-%)</span>
+                            </span>
+                        </div>
+
+                        <div class="stats-row">
+                            <span class="label">Outliers</span>
+                            <span class="value-group">
+                                <span id="outlier-count" class="value text-danger">-</span>
+                                <span id="outlier-percent" class="percent">(-%)</span>
+                            </span>
+                            <span class="value-group">
+                                <span id="overall-outlier-count" class="value text-danger">-</span>
+                                <span id="overall-outlier-percent" class="percent">(-%)</span>
+                            </span>
+                        </div>
                     </div>
 
                     <div class="filter-group">

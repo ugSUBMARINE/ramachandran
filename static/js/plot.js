@@ -69,7 +69,7 @@ function displayResults(data) {
     renderPlot();
 }
 
-function updateStats(phiPsi) {
+function updateStats(phiPsi, prefix = '') {
     const validPoints = phiPsi.filter(p => p.phi !== null && p.psi !== null);
     const total = validPoints.length;
     const favoured = validPoints.filter(p => p.classification === 'favoured').length;
@@ -80,14 +80,14 @@ function updateStats(phiPsi) {
     const aPerc = total > 0 ? (allowed / total * 100).toFixed(1) : 0;
     const oPerc = total > 0 ? (outliers / total * 100).toFixed(1) : 0;
 
-    document.getElementById('favoured-count').textContent = favoured;
-    document.getElementById('favoured-percent').textContent = `(${fPerc}%)`;
+    document.getElementById(`${prefix}favoured-count`).textContent = favoured;
+    document.getElementById(`${prefix}favoured-percent`).textContent = `(${fPerc}%)`;
 
-    document.getElementById('allowed-count').textContent = allowed;
-    document.getElementById('allowed-percent').textContent = `(${aPerc}%)`;
+    document.getElementById(`${prefix}allowed-count`).textContent = allowed;
+    document.getElementById(`${prefix}allowed-percent`).textContent = `(${aPerc}%)`;
 
-    document.getElementById('outlier-count').textContent = outliers;
-    document.getElementById('outlier-percent').textContent = `(${oPerc}%)`;
+    document.getElementById(`${prefix}outlier-count`).textContent = outliers;
+    document.getElementById(`${prefix}outlier-percent`).textContent = `(${oPerc}%)`;
 }
 
 function generateFilters(phiPsi) {
@@ -154,7 +154,8 @@ function renderPlot() {
         return chainMatch && typeMatch;
     });
 
-    updateStats(filteredPoints);
+    updateStats(filteredPoints, '');
+    updateStats(currentData.phi_psi, 'overall-');
     updateSummaryHeader();
 
     const traces = [];
