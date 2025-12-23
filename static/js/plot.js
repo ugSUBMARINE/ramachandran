@@ -241,7 +241,8 @@ function renderPlot() {
 
     const config = {
         responsive: true,
-        displaylogo: false
+        displaylogo: false,
+        modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
     };
 
     Plotly.newPlot('rama-plot-container', traces, layout, config);
