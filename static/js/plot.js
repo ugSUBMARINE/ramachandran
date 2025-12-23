@@ -14,7 +14,14 @@ document.getElementById('pdb-file').addEventListener('change', (e) => {
     }
 });
 
+document.getElementById('pdb-id').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        analyze();
+    }
+});
+
 document.getElementById('analyze-btn').addEventListener('click', analyze);
+document.getElementById('write-csv-btn').addEventListener('click', downloadCSV);
 
 async function analyze() {
     const pdbId = document.getElementById('pdb-id').value.trim();
@@ -41,6 +48,7 @@ async function analyze() {
             alert('Error: ' + result.error);
         } else {
             currentData = result;
+            document.getElementById('pdb-id').value = ''; // Clear on success
             displayResults(result);
         }
     } catch (err) {
@@ -65,10 +73,11 @@ function displayResults(data) {
 }
 
 function updateStats(phiPsi) {
-    const total = phiPsi.length;
-    const favoured = phiPsi.filter(p => p.classification === 'favoured').length;
-    const allowed = phiPsi.filter(p => p.classification === 'allowed').length;
-    const outliers = phiPsi.filter(p => p.classification === 'outlier').length;
+    const validPoints = phiPsi.filter(p => p.phi !== null && p.psi !== null);
+    const total = validPoints.length;
+    const favoured = validPoints.filter(p => p.classification === 'favoured').length;
+    const allowed = validPoints.filter(p => p.classification === 'allowed').length;
+    const outliers = validPoints.filter(p => p.classification === 'outlier').length;
 
     const fPerc = total > 0 ? (favoured / total * 100).toFixed(1) : 0;
     const aPerc = total > 0 ? (allowed / total * 100).toFixed(1) : 0;
@@ -125,6 +134,7 @@ function renderPlot() {
     if (!currentData) return;
 
     const filteredPoints = currentData.phi_psi.filter(p => {
+        if (p.phi === null || p.psi === null) return false;
         const chainMatch = currentFilters.chain === 'all' || p.chain === currentFilters.chain;
         const typeMatch = currentFilters.type === 'all' || p.rama_type === currentFilters.type;
         return chainMatch && typeMatch;
@@ -138,6 +148,8 @@ function renderPlot() {
 
     if (currentData.reference[activeType]) {
         const ref = currentData.reference[activeType];
+
+        // 1a. Outer Contour (Allowed Region) - Purple/Magenta
         traces.push({
             z: ref.z,
             x: ref.phi,
@@ -147,13 +159,34 @@ function renderPlot() {
             contours: {
                 coloring: 'none',
                 start: ref.levels[0],
-                end: ref.levels[1],
-                size: ref.levels[1] - ref.levels[0],
+                end: ref.levels[0],
+                size: 1,
                 labelfont: { size: 0 }
             },
             line: {
-                color: 'rgba(99, 102, 241, 0.8)', // Strengthened from 0.4
-                width: 1.5 // Strengthened from 1
+                color: '#a855f7', // Purple/Magenta
+                width: 1.5
+            },
+            hoverinfo: 'skip'
+        });
+
+        // 1b. Inner Contour (Favoured Region) - Cyan
+        traces.push({
+            z: ref.z,
+            x: ref.phi,
+            y: ref.psi,
+            type: 'contour',
+            showscale: false,
+            contours: {
+                coloring: 'none',
+                start: ref.levels[1],
+                end: ref.levels[1],
+                size: 1,
+                labelfont: { size: 0 }
+            },
+            line: {
+                color: '#06b6d4', // Cyan
+                width: 1.5
             },
             hoverinfo: 'skip'
         });
@@ -212,4 +245,21 @@ function renderPlot() {
     };
 
     Plotly.newPlot('rama-plot-container', traces, layout, config);
+}
+
+function downloadCSV() {
+    if (!currentData || !currentData.csv_data) {
+        alert("No CSV data available yet. Please analyze a structure first.");
+        return;
+    }
+
+    const blob = new Blob([currentData.csv_data], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `ramachandran_${currentData.pdb_id.toLowerCase()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }

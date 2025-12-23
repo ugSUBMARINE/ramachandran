@@ -162,68 +162,54 @@ def get_phi_psi(structure):
                 
                 # Get backbone atoms
                 try:
-                    # Previous residue C
+                    prev_res_c = None
                     if i > 0:
                         prev_res = residues[i-1]
-                        # Check distance for chain break (CA-CA > 4.0)
                         if "CA" in res and "CA" in prev_res:
                             dist = np.linalg.norm(res["CA"].get_coord() - prev_res["CA"].get_coord())
-                            if dist > 4.5: # Chain break
-                                prev_res_c = None
-                            else:
+                            if dist <= 4.5:
                                 prev_res_c = prev_res["C"] if "C" in prev_res else None
-                        else:
-                            prev_res_c = None
-                    else:
-                        prev_res_c = None
-                        
-                    # Current residue atoms
-                    n = res["N"]
-                    ca = res["CA"]
-                    c = res["C"]
                     
-                    # Next residue N
+                    n = res["N"] if "N" in res else None
+                    ca = res["CA"] if "CA" in res else None
+                    c = res["C"] if "C" in res else None
+                    
+                    next_res_n = None
                     if i < len(residues) - 1:
                         next_res = residues[i+1]
-                        # Check distance for chain break
                         if "CA" in res and "CA" in next_res:
                             dist = np.linalg.norm(res["CA"].get_coord() - next_res["CA"].get_coord())
-                            if dist > 4.5:
-                                next_res_n = None
-                            else:
+                            if dist <= 4.5:
                                 next_res_n = next_res["N"] if "N" in next_res else None
-                        else:
-                            next_res_n = None
-                    else:
-                        next_res_n = None
-                        
+                                
                     phi = None
-                    if prev_res_c is not None:
+                    if prev_res_c is not None and n is not None and ca is not None and c is not None:
                         phi = calc_dihedral(prev_res_c.get_coord(), n.get_coord(), ca.get_coord(), c.get_coord())
                         
                     psi = None
-                    if next_res_n is not None:
+                    if n is not None and ca is not None and c is not None and next_res_n is not None:
                         psi = calc_dihedral(n.get_coord(), ca.get_coord(), c.get_coord(), next_res_n.get_coord())
                         
                     omega = None
-                    if prev_res_c is not None:
-                        prev_ca = prev_res["CA"]
-                        omega = calc_dihedral(prev_ca.get_coord(), prev_res_c.get_coord(), n.get_coord(), ca.get_coord())
-                        if res_name == "PRO" and omega is not None and abs(omega) < 90.0:
-                            rama_type = "cis-Pro"
+                    if prev_res_c is not None and n is not None and ca is not None:
+                        prev_ca = prev_res["CA"] if "CA" in prev_res else None
+                        if prev_ca is not None:
+                            omega = calc_dihedral(prev_ca.get_coord(), prev_res_c.get_coord(), n.get_coord(), ca.get_coord())
+                            if res_name == "PRO" and omega is not None and abs(omega) < 90.0:
+                                rama_type = "cis-Pro"
 
-                    if phi is not None and psi is not None:
-                        results.append({
-                            "chain": chain.id,
-                            "resSeq": res.id[1],
-                            "resName": res_name,
-                            "phi": float(phi),
-                            "psi": float(psi),
-                            "omega": float(omega) if omega is not None else None,
-                            "rama_type": rama_type
-                        })
-                except KeyError:
-                    # Missing backbone atoms
+                    results.append({
+                        "chain": chain.id,
+                        "resSeq": res.id[1],
+                        "icode": res.id[2],
+                        "resName": res_name,
+                        "phi": float(phi) if phi is not None else None,
+                        "psi": float(psi) if psi is not None else None,
+                        "omega": float(omega) if omega is not None else None,
+                        "rama_type": rama_type
+                    })
+                except Exception:
+                    # Fallback for unexpected issues with single residues
                     continue
                     
     return results
@@ -240,3 +226,35 @@ def parse_structure(filepath):
         
     structure = parser.get_structure("protein", filepath)
     return structure
+
+def generate_csv(phi_psi_data):
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Headers
+    writer.writerow([
+        'chain', 'residue number', 'icode', 'residue type',
+        'phi', 'psi', 'omega', 'interpolated percentage',
+        'rama type', 'category'
+    ])
+    
+    for p in phi_psi_data:
+        # Only include if we have phi and psi
+        if p["phi"] is not None and p["psi"] is not None:
+            writer.writerow([
+                p["chain"],
+                p["resSeq"],
+                p["icode"].strip(),
+                p["resName"],
+                f"{p['phi']:.3f}",
+                f"{p['psi']:.3f}",
+                f"{p['omega']:.3f}" if p["omega"] is not None else "",
+                f"{p['score']:.4f}" if p.get("score") is not None else "",
+                p["rama_type"],
+                p.get("classification", "")
+            ])
+            
+    return output.getvalue()

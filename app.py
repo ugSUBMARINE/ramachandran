@@ -43,9 +43,13 @@ def process():
         
         # Classify each residue
         for item in phi_psi_data:
-            score, category = rama_manager.classify_phipsi(item["rama_type"], item["phi"], item["psi"])
-            item["score"] = score
-            item["classification"] = category
+            if item["phi"] is not None and item["psi"] is not None:
+                score, category = rama_manager.classify_phipsi(item["rama_type"], item["phi"], item["psi"])
+                item["score"] = score
+                item["classification"] = category
+            else:
+                item["score"] = None
+                item["classification"] = None
             
         # Prepare reference data for the frontend (contours)
         # We only send the grid for the types present in the structure, or all if preferred
@@ -55,10 +59,14 @@ def process():
             reference_data[key] = rama_manager.rama_data[key]["grid"]
             reference_data[key]["levels"] = rama_manager.rama_data[key]["levels"]
 
+        from utils import generate_csv
+        csv_data = generate_csv(phi_psi_data)
+
         response = {
             "pdb_id": pdb_id if pdb_id else file.filename,
             "phi_psi": phi_psi_data,
-            "reference": reference_data
+            "reference": reference_data,
+            "csv_data": csv_data
         }
         
         return jsonify(response)

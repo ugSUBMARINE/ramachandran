@@ -155,16 +155,23 @@ header p {
     }
 }
 
+input[type="text"],
+.file-input-wrapper,
+.btn-primary {
+    width: 220px;
+}
+
 input[type="text"] {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 0.8rem 1.2rem;
     color: white;
-    width: 250px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     outline: none;
     transition: border-color 0.3s;
+    height: 46px;
+    /* Explicit height for alignment */
 }
 
 input[type="text"]:focus {
@@ -193,12 +200,18 @@ input[type="text"]:focus {
 }
 
 .btn {
-    padding: 0.8rem 1.5rem;
+    padding: 0.8rem 1.2rem;
     border-radius: 12px;
     font-weight: 600;
+    font-size: 0.95rem;
     cursor: pointer;
     border: none;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 46px;
+    /* Explicit height to match input */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-primary {
@@ -317,6 +330,16 @@ input[type="text"]:focus {
     background: var(--primary);
     border-color: var(--primary);
     color: white;
+}
+
+.panel-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.w-full {
+    width: 100% !important;
 }
 
 .text-success {
