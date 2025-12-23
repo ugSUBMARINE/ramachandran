@@ -65,9 +65,6 @@ function showLoading(show) {
 
 function displayResults(data) {
     document.getElementById('results-section').classList.remove('hidden');
-    document.getElementById('display-pdb-id').textContent = data.pdb_id.toUpperCase();
-
-    updateStats(data.phi_psi);
     generateFilters(data.phi_psi);
     renderPlot();
 }
@@ -130,6 +127,23 @@ function generateFilters(phiPsi) {
     });
 }
 
+function updateSummaryHeader() {
+    if (!currentData) return;
+
+    document.getElementById('display-pdb-id').textContent = currentData.pdb_id.toUpperCase();
+
+    const parts = [];
+    if (currentFilters.chain !== 'all') {
+        parts.push(`Chain ${currentFilters.chain}`);
+    }
+    if (currentFilters.type !== 'all') {
+        parts.push(currentFilters.type);
+    }
+
+    const filterInfo = parts.length > 0 ? parts.join(' • ') : 'All Residues';
+    document.getElementById('display-filter-info').textContent = filterInfo;
+}
+
 function renderPlot() {
     if (!currentData) return;
 
@@ -139,6 +153,9 @@ function renderPlot() {
         const typeMatch = currentFilters.type === 'all' || p.rama_type === currentFilters.type;
         return chainMatch && typeMatch;
     });
+
+    updateStats(filteredPoints);
+    updateSummaryHeader();
 
     const traces = [];
 

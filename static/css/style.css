@@ -269,11 +269,29 @@ input[type="text"]:focus {
     padding: 2rem;
 }
 
-.stats-panel h3 {
+.summary-header {
     margin-bottom: 1.5rem;
-    font-size: 1.2rem;
     border-bottom: 1px solid var(--glass-border);
-    padding-bottom: 0.5rem;
+    padding-bottom: 0.75rem;
+    min-height: 4.2rem;
+    /* Ensure stability regardless of content */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.pdb-title {
+    font-size: 1.2rem;
+    line-height: 1.2;
+}
+
+.filter-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .stat-item {
