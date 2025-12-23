@@ -191,8 +191,11 @@ input[type="text"]:focus {
     border: 1px solid var(--border-color);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.file-input-wrapper:hover .btn-secondary {
     background: #e2e8f0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .file-name {
