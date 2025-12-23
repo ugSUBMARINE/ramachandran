@@ -1,6 +1,6 @@
 import os
 import uuid
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from utils import RamachandranManager, parse_structure, fetch_pdb_file, get_phi_psi
 
