@@ -181,13 +181,13 @@ function renderPlot() {
                 labelfont: { size: 0 }
             },
             line: {
-                color: '#a855f7', // Purple/Magenta
+                color: '#7e48dbff', // Purple
                 width: 1.5
             },
             hoverinfo: 'skip'
         });
 
-        // 1b. Inner Contour (Favoured Region) - Cyan
+        // 1b. Inner Contour (Favoured Region) - Blue
         traces.push({
             z: ref.z,
             x: ref.phi,
@@ -202,7 +202,7 @@ function renderPlot() {
                 labelfont: { size: 0 }
             },
             line: {
-                color: '#06b6d4', // Cyan
+                color: '#3036e7ff', // Blue
                 width: 1.5
             },
             hoverinfo: 'skip'
@@ -218,9 +218,9 @@ function renderPlot() {
         marker: {
             size: 8,
             color: filteredPoints.map(p => {
-                if (p.classification === 'favoured') return '#10b981';
-                if (p.classification === 'allowed') return '#f59e0b';
-                return '#ef4444';
+                if (p.classification === 'favoured') return '#34d399'; // Softer Emerald
+                if (p.classification === 'allowed') return '#fbbf24'; // Softer Amber
+                return '#f87171'; // Softer Red
             }),
             symbol: 'circle-open',
             line: { width: 1.5 }
@@ -233,22 +233,22 @@ function renderPlot() {
     const layout = {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#f8fafc', family: 'Inter' },
+        font: { color: '#1e293b', family: 'Inter' },
         xaxis: {
             title: 'Phi (Φ)',
             range: [-180, 180],
             dtick: 60,
             constrain: 'domain',
-            gridcolor: 'rgba(255,255,255,0.05)',
-            zerolinecolor: 'rgba(255,255,255,0.1)'
+            gridcolor: 'rgba(0,0,0,0.05)',
+            zerolinecolor: 'rgba(0,0,0,0.1)'
         },
         yaxis: {
             title: 'Psi (Ψ)',
             range: [-180, 180],
             dtick: 60,
             constrain: 'domain',
-            gridcolor: 'rgba(255,255,255,0.05)',
-            zerolinecolor: 'rgba(255,255,255,0.1)',
+            gridcolor: 'rgba(0,0,0,0.05)',
+            zerolinecolor: 'rgba(0,0,0,0.1)',
             scaleanchor: 'x',
             scaleratio: 1
         },
