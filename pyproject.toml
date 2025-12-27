@@ -1,8 +1,13 @@
 [project]
 name = "ramachandran"
 version = "0.1.0"
-description = "Add your description here"
+description = "A web-based Ramachandran plot analysis and visualization tool for protein structures."
 readme = "README.md"
+authors = [
+    { name = "Karl Gruber", email = "gammaturn@gmail.com" }
+]
+license = { text = "MIT" }
+keywords = ["bioinformatics", "protein-structure", "ramachandran-plot", "pdb", "mmcif"]
 requires-python = ">=3.13"
 dependencies = [
     "biopython>=1.86",

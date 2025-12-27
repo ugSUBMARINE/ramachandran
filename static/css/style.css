@@ -412,6 +412,18 @@ footer {
     font-size: 0.9rem;
 }
 
+footer a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+footer a:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
 @media (max-width: 900px) {
     .plot-controls-grid {
         grid-template-columns: 1fr;
