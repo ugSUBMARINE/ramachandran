@@ -2,6 +2,12 @@
 
 A web-based application for analyzing and visualizing Ramachandran plots of protein structures. This tool calculates backbone dihedral angles (φ and ψ) and classifies residues into **Favored**, **Allowed**, and **Outlier** regions based on high-quality reference data.
 
+## Live Demo
+
+**Try it now**: [ramachandran.onrender.com](https://ramachandran.onrender.com)
+
+*Note: The demo runs on a free tier, so initial startup may take 30-60 seconds.*
+
 ## Features
 
 - **PDB/mmCIF Support**: Upload your own structure files or fetch them directly from the RCSB PDB by ID.
@@ -68,6 +74,26 @@ The application will be available at `http://localhost:5001`.
 - `data/`: Reference data files for Ramachandran distributions.
 - `static/`: Frontend assets (CSS, JS).
 - `templates/`: HTML templates.
+
+## Deployment
+
+This application can be deployed to platforms like Render, Heroku, or similar services.
+
+### Deploying to Render
+
+1. Ensure `gunicorn` is added as a dependency:
+   ```bash
+   uv add gunicorn
+   ```
+
+2. Use the following start command:
+   ```bash
+   uv run gunicorn app:app
+   ```
+
+3. Render will automatically detect and install dependencies from `pyproject.toml` using `uv sync`.
+
+A live demo is available at [ramachandran.onrender.com](https://ramachandran.onrender.com).
 
 ## License
 
