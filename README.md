@@ -1,6 +1,6 @@
 # Ramachandran Plot Analysis Tool
 
-A web-based application for analyzing and visualizing Ramachandran plots of protein structures. This tool calculates backbone dihedral angles (φ and ψ) and classifies residues into **Favored**, **Allowed**, and **Outlier** regions based on high-quality reference data.
+A web-based application for analyzing and visualizing Ramachandran plots of protein structures. This tool calculates backbone dihedral angles (φ and ψ) and classifies residues into **Favoured**, **Allowed**, and **Outlier** regions based on high-quality reference data.
 
 ## Live Demo
 
