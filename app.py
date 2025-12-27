@@ -73,16 +73,19 @@ def process():
             reference_data[key] = rama_manager.rama_data[key]["grid"]
             reference_data[key]["levels"] = rama_manager.rama_data[key]["levels"]
 
-        csv_data = generate_csv(phi_psi_data)
-
         # Save results to a JSON file for on-demand downloads
         result_id = str(uuid.uuid4())
-        results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
+        results_path = os.path.join(
+            app.config["UPLOAD_FOLDER"], f"{result_id}_results.json"
+        )
         with open(results_path, "w") as f:
-            json.dump({
-                "pdb_id": pdb_id if pdb_id else file.filename,
-                "phi_psi": phi_psi_data
-            }, f)
+            json.dump(
+                {
+                    "pdb_id": pdb_id if pdb_id else file.filename,
+                    "phi_psi": phi_psi_data,
+                },
+                f,
+            )
 
         response = {
             "result_id": result_id,
@@ -102,44 +105,49 @@ def process():
 
 @app.route("/download/csv/<result_id>")
 def download_csv(result_id):
-    results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
+    results_path = os.path.join(
+        app.config["UPLOAD_FOLDER"], f"{result_id}_results.json"
+    )
     if not os.path.exists(results_path):
         return "Result not found", 404
-    
+
     with open(results_path, "r") as f:
         data = json.load(f)
-    
+
     csv_content = generate_csv(data["phi_psi"])
     pdb_id = data["pdb_id"].lower()
-    
+
     from io import BytesIO
-    buf = BytesIO(csv_content.encode('utf-8'))
-    
+
+    buf = BytesIO(csv_content.encode("utf-8"))
+
     return send_file(
         buf,
         mimetype="text/csv",
         as_attachment=True,
-        download_name=f"ramachandran_{pdb_id}.csv"
+        download_name=f"ramachandran_{pdb_id}.csv",
     )
 
 
 @app.route("/download/pdf/<result_id>")
 def download_pdf(result_id):
-    results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
+    results_path = os.path.join(
+        app.config["UPLOAD_FOLDER"], f"{result_id}_results.json"
+    )
     if not os.path.exists(results_path):
         return "Result not found", 404
-    
+
     with open(results_path, "r") as f:
         data = json.load(f)
-    
+
     pdf_buf = generate_pdf_report(data["phi_psi"], data["pdb_id"], rama_manager)
     pdb_id = data["pdb_id"].lower()
-    
+
     return send_file(
         pdf_buf,
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"ramachandran_{pdb_id}.pdf"
+        download_name=f"ramachandran_{pdb_id}.pdf",
     )
 
 
