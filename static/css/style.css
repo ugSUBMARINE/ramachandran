@@ -424,8 +424,9 @@ footer a:hover {
     text-decoration: underline;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
     .plot-controls-grid {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column-reverse;
     }
 }
