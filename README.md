@@ -20,7 +20,7 @@ A web-based application for analyzing and visualizing Ramachandran plots of prot
   - cis-Proline
 - **Interactive Visualization**: Dynamic plotting with contour lines representing favorable and allowed regions.
 - **Statistical Summary**: Instant breakdown of residue distributions and outliers.
-- **Data Export**: Download analysis results as a CSV file for further study.
+- **Data Export**: Download analysis results as CSV or professional 6-panel PDF reports.
 
 ## References
 
@@ -62,10 +62,28 @@ The underlying Ramachandran distribution data (rama8000) is provided by the Rich
 Start the Flask development server:
 
 ```bash
-uv run python app.py
+uv run app.py
 ```
 
 The application will be available at `http://localhost:5001`.
+
+### API Usage (via curl)
+
+**Analyze a structure (PDB ID):**
+```bash
+curl -X POST -F "pdb_id=1UBQ" http://127.0.0.1:5001/process
+```
+
+**Download results (CSV):**
+```bash
+# Substitute <result_id> with the one returned by the /process endpoint
+curl -o report.csv http://127.0.0.1:5001/download/csv/<result_id>
+```
+
+**Download results (PDF):**
+```bash
+curl -o report.pdf http://127.0.0.1:5001/download/pdf/<result_id>
+```
 
 ## Project Structure
 
