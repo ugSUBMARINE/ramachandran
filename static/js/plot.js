@@ -64,6 +64,10 @@ function showLoading(show) {
 }
 
 function displayResults(data) {
+    // Reset filters to defaults for new structure
+    currentFilters.chain = 'all';
+    currentFilters.type = 'General';
+
     document.getElementById('results-section').classList.remove('hidden');
     generateFilters(data.phi_psi);
     renderPlot();
