@@ -1,7 +1,12 @@
 import os
+import io
+import csv
 import gzip
 import urllib.request
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
 from Bio import PDB
 from Bio.PDB.Polypeptide import is_aa
 from scipy import interpolate
@@ -291,9 +296,6 @@ def parse_structure(filepath):
 
 
 def generate_csv(phi_psi_data):
-    import io
-    import csv
-
     output = io.StringIO()
     writer = csv.writer(output)
 
@@ -332,3 +334,115 @@ def generate_csv(phi_psi_data):
             )
 
     return output.getvalue()
+
+
+def generate_pdf_report(phi_psi_data, pdb_id, rama_manager):
+    """
+    Generates a 6-panel Ramachandran PDF report similar to MolProbity/old_script.
+    """
+    # Filter out residues without phi/psi
+    valid_data = [p for p in phi_psi_data if p["phi"] is not None and p["psi"] is not None]
+    if not valid_data:
+        raise ValueError("No valid phi/psi data to plot.")
+
+    # Create the figure
+    fig, axes = plt.subplots(
+        3, 2, figsize=(8.0, 12.0), layout="constrained", sharex=True, sharey=True
+    )
+    
+    # Define color for levels
+    # levels_colors = ("#5F5FFF", "#57A1EB") # From old script
+    levels_colors = ("#7e48db", "#3036e7") # Matching the web app's purple/blue
+
+    for i, (ax, rama_type) in enumerate(zip(axes.flat, RAMA_KEYS)):
+        # Data for this type
+        type_data = [p for p in valid_data if p["rama_type"] == rama_type]
+        
+        # 1. Plot reference contours
+        if rama_type in rama_manager.rama_data:
+            ref = rama_manager.rama_data[rama_type]
+            grid = ref["grid"]
+            phi_grid, psi_grid = np.meshgrid(grid["phi"], grid["psi"])
+            
+            ax.contour(
+                phi_grid,
+                psi_grid,
+                np.array(ref["dist"]),
+                levels=ref["levels"],
+                colors=levels_colors,
+                linewidths=1.0,
+                zorder=10,
+            )
+
+        # 2. Scatter Points
+        if type_data:
+            phis = [p["phi"] for p in type_data]
+            psis = [p["psi"] for p in type_data]
+            categories = [p.get("classification") for p in type_data]
+            
+            # Non-outliers
+            normal_phis = [p["phi"] for p in type_data if p.get("classification") != "outlier"]
+            normal_psis = [p["psi"] for p in type_data if p.get("classification") != "outlier"]
+            
+            if normal_phis:
+                ax.scatter(
+                    normal_phis,
+                    normal_psis,
+                    marker="o",
+                    s=10.0,
+                    fc="none",
+                    ec="0.4",
+                    zorder=20,
+                )
+            
+            # Outliers
+            outliers = [p for p in type_data if p.get("classification") == "outlier"]
+            if outliers:
+                outlier_phis = [p["phi"] for p in outliers]
+                outlier_psis = [p["psi"] for p in outliers]
+                ax.scatter(
+                    outlier_phis,
+                    outlier_psis,
+                    marker="o",
+                    s=10.0,
+                    fc="none",
+                    ec="#ef4444", # Red for outliers
+                    zorder=20,
+                )
+                
+                # Labels for outliers
+                for row in outliers:
+                    icode_str = f"{row['icode']}".strip()
+                    label = f"{row['chain']} {row['resSeq']}{icode_str} {row['resName'].capitalize()}"
+                    ax.text(
+                        row["phi"] + 5.0,
+                        row["psi"],
+                        label,
+                        fontsize=6,
+                        verticalalignment="center",
+                        zorder=30,
+                    )
+
+        # Aesthetics
+        ax.set_aspect("equal")
+        ax.set_xticks(np.arange(-180, 181, 60))
+        ax.set_yticks(np.arange(-180, 181, 60))
+        ax.set_xlim(-180.0, 180.0)
+        ax.set_ylim(-180.0, 180.0)
+        ax.set_title(rama_type, fontsize=10, fontweight='bold')
+        
+        if i >= 4:
+            ax.set_xlabel(r"$\Phi$ (°)")
+        if i % 2 == 0:
+            ax.set_ylabel(r"$\Psi$ (°)")
+            
+        ax.grid(linestyle="dashed", linewidth=0.5, alpha=0.5)
+
+    fig.suptitle(f"Ramachandran Report: {pdb_id.upper()}", fontsize=16, fontweight='bold')
+    
+    # Save to buffer
+    buf = io.BytesIO()
+    fig.savefig(buf, format="pdf")
+    buf.seek(0)
+    plt.close(fig) # Clean up
+    return buf

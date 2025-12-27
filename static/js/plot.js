@@ -22,6 +22,7 @@ document.getElementById('pdb-id').addEventListener('keydown', (e) => {
 
 document.getElementById('analyze-btn').addEventListener('click', analyze);
 document.getElementById('write-csv-btn').addEventListener('click', downloadCSV);
+document.getElementById('download-pdf-btn').addEventListener('click', downloadPDF);
 
 async function analyze() {
     const pdbId = document.getElementById('pdb-id').value.trim();
@@ -271,18 +272,17 @@ function renderPlot() {
 }
 
 function downloadCSV() {
-    if (!currentData || !currentData.csv_data) {
-        alert("No CSV data available yet. Please analyze a structure first.");
+    if (!currentData || !currentData.result_id) {
+        alert("No analysis result available yet.");
         return;
     }
+    window.location.href = `/download/csv/${currentData.result_id}`;
+}
 
-    const blob = new Blob([currentData.csv_data], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `ramachandran_${currentData.pdb_id.toLowerCase()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+function downloadPDF() {
+    if (!currentData || !currentData.result_id) {
+        alert("No analysis result available yet.");
+        return;
+    }
+    window.location.href = `/download/pdf/${currentData.result_id}`;
 }
