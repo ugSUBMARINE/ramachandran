@@ -2,7 +2,13 @@ import os
 import uuid
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
-from utils import RamachandranManager, parse_structure, fetch_pdb_file, get_phi_psi
+from utils import (
+    RamachandranManager,
+    parse_structure,
+    fetch_structure_file,
+    get_phi_psi,
+    generate_csv,
+)
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -29,7 +35,7 @@ def process():
     filepath = None
 
     if pdb_id:
-        filepath = fetch_pdb_file(pdb_id, output_dir=app.config["UPLOAD_FOLDER"])
+        filepath = fetch_structure_file(pdb_id, output_dir=app.config["UPLOAD_FOLDER"])
         if not filepath:
             return jsonify({"error": "Failed to fetch PDB ID from RCSB"}), 400
     elif file and file.filename != "":
@@ -64,8 +70,6 @@ def process():
         for key in rama_manager.rama_data:
             reference_data[key] = rama_manager.rama_data[key]["grid"]
             reference_data[key]["levels"] = rama_manager.rama_data[key]["levels"]
-
-        from utils import generate_csv
 
         csv_data = generate_csv(phi_psi_data)
 

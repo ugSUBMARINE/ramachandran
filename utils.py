@@ -99,11 +99,11 @@ class RamachandranManager:
         return float(value * 100.0), category
 
 
-def fetch_pdb_file(pdb_id, output_dir="temp_pdb"):
+def fetch_structure_file(pdb_id, output_dir="temp_pdb"):
     os.makedirs(output_dir, exist_ok=True)
     pdb_id = pdb_id.lower()
-    url = f"https://files.rcsb.org/download/{pdb_id.upper()}.pdb.gz"
-    filepath = os.path.join(output_dir, f"{pdb_id}.pdb")
+    url = f"https://files.rcsb.org/download/{pdb_id.upper()}.cif.gz"
+    filepath = os.path.join(output_dir, f"{pdb_id}.cif")
 
     try:
         with urllib.request.urlopen(url) as response:
@@ -113,7 +113,7 @@ def fetch_pdb_file(pdb_id, output_dir="temp_pdb"):
                     f.write(content)
                 return filepath
     except Exception as e:
-        print(f"Error fetching PDB {pdb_id}: {e}")
+        print(f"Error fetching structure {pdb_id}: {e}")
     return None
 
 
