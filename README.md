@@ -20,7 +20,7 @@ A web-based application for analyzing and visualizing Ramachandran plots of prot
   - cis-Proline
 - **Interactive Visualization**: Dynamic plotting with contour lines representing favorable and allowed regions.
 - **Statistical Summary**: Instant breakdown of residue distributions and outliers.
-- **Data Export**: Download analysis results as CSV or professional 6-panel PDF reports.
+- **Data Export**: Download analysis results as CSV or 6-panel PDF reports (similar to [Molprobity](https://molprobity.biochem.duke.edu/)).
 
 ## References
 
