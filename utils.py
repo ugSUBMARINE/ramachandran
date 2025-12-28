@@ -3,9 +3,10 @@ import gzip
 import io
 import os
 import urllib.request
-import numpy as np
+
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 from Bio import PDB
 from Bio.PDB.Polypeptide import is_aa
 from scipy import interpolate
@@ -165,7 +166,11 @@ def get_phi_psi(structure):
         "TYR",
     ]
 
-    for model in structure:
+    for model_nr, model in enumerate(structure):
+        # Only process first model
+        if model_nr > 0:
+            break
+
         for chain in model:
             residues = [res for res in chain if is_aa(res)]
 
