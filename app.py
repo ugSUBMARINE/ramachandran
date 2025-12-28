@@ -38,17 +38,23 @@ def healthz():
 @app.route("/info")
 def info():
     """Returns application metadata."""
-    return jsonify({
-        "name": "ramachandran",
-        "version": "0.1.0",
-        "description": "A web-based Ramachandran plot analysis and visualization tool for protein structures."
-    }), 200
+    return jsonify(
+        {
+            "name": "ramachandran",
+            "version": "0.1.0",
+            "description": "A web-based Ramachandran plot analysis and visualization tool for protein structures.",
+        }
+    ), 200
 
 
 @app.route("/robots.txt")
 def robots_txt():
     """Standard instructions for web crawlers."""
-    return "User-agent: *\nDisallow: /process\nDisallow: /download/", 200, {"Content-Type": "text/plain"}
+    return (
+        "User-agent: *\nDisallow: /process\nDisallow: /download/",
+        200,
+        {"Content-Type": "text/plain"},
+    )
 
 
 @app.route("/favicon.ico")
