@@ -29,6 +29,34 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/healthz")
+def healthz():
+    """Health check endpoint for monitoring and orchestration tools."""
+    return jsonify({"status": "healthy"}), 200
+
+
+@app.route("/info")
+def info():
+    """Returns application metadata."""
+    return jsonify({
+        "name": "ramachandran",
+        "version": "0.1.0",
+        "description": "A web-based Ramachandran plot analysis and visualization tool for protein structures."
+    }), 200
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    """Standard instructions for web crawlers."""
+    return "User-agent: *\nDisallow: /process\nDisallow: /download/", 200, {"Content-Type": "text/plain"}
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Serve the favicon to prevent 404 logs in browsers."""
+    return app.send_static_file("favicon.ico")
+
+
 @app.route("/process", methods=["POST"])
 def process():
     pdb_id = request.form.get("pdb_id")
