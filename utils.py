@@ -157,6 +157,7 @@ def get_phi_psi(structure):
         "LYS",
         "LEU",
         "MET",
+        "MSE",
         "ASN",
         "GLN",
         "ARG",
