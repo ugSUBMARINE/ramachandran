@@ -147,25 +147,37 @@ def get_phi_psi(structure):
     results = []
 
     # Mapping for Ramachandran types
-    GENERAL_AA = [
+    GENERAL_AA = (
         "ALA",
-        "CYS",
-        "ASP",
-        "GLU",
-        "PHE",
-        "HIS",
-        "LYS",
-        "LEU",
-        "MET",
-        "MSE",
-        "ASN",
-        "GLN",
         "ARG",
+        "ASN",
+        "ASP",
+        "CSO",  # cysteine sulfenic acid
+        "CYS",
+        "GLN",
+        "GLU",
+        "HIS",
+        "HLU",  # beta-hydroxyleucine
+        "KCX",  # lysine carbamylated
+        "LEU",
+        "LLP",  # lysine bound to PLP
+        "LYO",  # 4-hydroxylysine
+        "LYS",
+        "M3L",  # N-trimethyllysine
+        "MET",  # selenomethionine
+        "MSE",
+        "PHE",
+        "PYL",  # pyrrolysine
+        "SEC",  # selenocysteine
         "SER",
         "THR",
         "TRP",
         "TYR",
-    ]
+    )
+
+    PROLINES = ("PRO", "HYP")
+
+    ILE_VALS = ("ILE", "VAL")
 
     for model_nr, model in enumerate(structure):
         # Only process first model
@@ -182,20 +194,21 @@ def get_phi_psi(structure):
 
                 # Default type
                 rama_type = "General" if res_name in GENERAL_AA else "unknown"
-                if res_name in ["ILE", "VAL"]:
+                if res_name in ILE_VALS:
                     rama_type = "Ile/Val"
                 elif res_name == "GLY":
                     rama_type = "Gly"
-                elif res_name == "PRO":
+                elif res_name in PROLINES:
                     rama_type = "trans-Pro"  # Will check for cis later
 
                 # Check for pre-Pro
                 if i < len(residues) - 1:
                     next_res = residues[i + 1]
-                    if next_res.get_resname() == "PRO" and res_name not in [
-                        "PRO",
-                        "GLY",
-                    ]:
+                    if (
+                        next_res.get_resname() in PROLINES
+                        and res_name not in PROLINES
+                        and res_name != "GLY"
+                    ):
                         rama_type = "pre-Pro"
 
                 # Get backbone atoms
@@ -263,7 +276,7 @@ def get_phi_psi(structure):
                                 ca.get_coord(),
                             )
                             if (
-                                res_name == "PRO"
+                                res_name in PROLINES
                                 and omega is not None
                                 and abs(omega) < 90.0
                             ):
