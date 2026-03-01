@@ -1,6 +1,6 @@
+import argparse
 import os
 import time
-import argparse
 from datetime import datetime
 
 
@@ -18,9 +18,7 @@ def cleanup_uploads(uploads_dir="uploads", max_age_hours=24):
     count = 0
     errors = 0
 
-    print(
-        f"[{datetime.now()}] Starting cleanup of {uploads_dir} (older than {max_age_hours} hours)..."
-    )
+    print(f"[{datetime.now()}] Starting cleanup of {uploads_dir} (older than {max_age_hours} hours)...")
 
     for filename in os.listdir(uploads_dir):
         # Skip hidden files like .DS_Store or .gitkeep
@@ -48,12 +46,8 @@ def cleanup_uploads(uploads_dir="uploads", max_age_hours=24):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Cleanup old files in the uploads directory."
-    )
-    parser.add_argument(
-        "--dir", default="uploads", help="Directory to clean up (default: uploads)"
-    )
+    parser = argparse.ArgumentParser(description="Cleanup old files in the uploads directory.")
+    parser.add_argument("--dir", default="uploads", help="Directory to clean up (default: uploads)")
     parser.add_argument(
         "--age",
         type=float,

@@ -8,6 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from Bio import PDB
+from Bio.Data.PDBData import protein_letters_3to1_extended
 from Bio.PDB.Polypeptide import is_aa
 from scipy import interpolate
 
@@ -33,6 +34,12 @@ LEVELS = {
     "cis-Pro": [0.002, 0.02],
 }
 
+# Define amino acid categories for classification
+# fmt: off
+GENERAL_AA = ("A", "C", "D", "E", "F", "H", "K", "L", "M", "N", "Q", "R", "S", "T", "W", "Y")
+ILE_VAL = ("I", "V")
+# fmt: on
+
 
 class RamachandranManager:
     def __init__(self, data_directory="data"):
@@ -44,15 +51,13 @@ class RamachandranManager:
         dihed_range = np.arange(-181.0, 182.0, 2.0)
 
         for key in RAMA_KEYS:
-            filename = os.path.join(
-                self.data_directory, f"rama8000-{RAMA_TYPES_FILE_MAP[key]}.data"
-            )
+            filename = os.path.join(self.data_directory, f"rama8000-{RAMA_TYPES_FILE_MAP[key]}.data")
             if not os.path.exists(filename):
                 print(f"Warning: Reference data file {filename} not found.")
                 continue
 
             data = []
-            with open(filename, "r") as f:
+            with open(filename) as f:
                 for line in f:
                     if line and not line.startswith("#"):
                         data.append([float(val) for val in line.split()])
@@ -68,9 +73,7 @@ class RamachandranManager:
             rama_dist = np.pad(rama_dist, 1, mode="wrap")
 
             # create interpolating function
-            f_interp = interpolate.RegularGridInterpolator(
-                (dihed_range, dihed_range), rama_dist.T
-            )
+            f_interp = interpolate.RegularGridInterpolator((dihed_range, dihed_range), rama_dist.T)
 
             rama_data[key] = {
                 "dist": rama_dist.tolist(),  # For JSON serialization if needed
@@ -146,39 +149,6 @@ def calc_dihedral(a, b, c, d):
 def get_phi_psi(structure):
     results = []
 
-    # Mapping for Ramachandran types
-    GENERAL_AA = (
-        "ALA",
-        "ARG",
-        "ASN",
-        "ASP",
-        "CSO",  # cysteine sulfenic acid
-        "CYS",
-        "GLN",
-        "GLU",
-        "HIS",
-        "HLU",  # beta-hydroxyleucine
-        "KCX",  # lysine carbamylated
-        "LEU",
-        "LLP",  # lysine bound to PLP
-        "LYO",  # 4-hydroxylysine
-        "LYS",
-        "M3L",  # N-trimethyllysine
-        "MET",  # selenomethionine
-        "MSE",
-        "PHE",
-        "PYL",  # pyrrolysine
-        "SEC",  # selenocysteine
-        "SER",
-        "THR",
-        "TRP",
-        "TYR",
-    )
-
-    PROLINES = ("PRO", "HYP")
-
-    ILE_VALS = ("ILE", "VAL")
-
     for model_nr, model in enumerate(structure):
         # Only process first model
         if model_nr > 0:
@@ -188,27 +158,29 @@ def get_phi_psi(structure):
             residues = [res for res in chain if is_aa(res)]
 
             # Check for chain breaks by CA-CA distance
-            for i in range(len(residues)):
-                res = residues[i]
+            for i, res in enumerate(residues):
                 res_name = res.get_resname()
+                # get the one-letter code of the amino acid
+                # also works for non-standard residues that have a defined mapping
+                one_letter = protein_letters_3to1_extended.get(res_name)
 
-                # Default type
-                rama_type = "General" if res_name in GENERAL_AA else "unknown"
-                if res_name in ILE_VALS:
+                # Deduce Ramachandran type based on residue
+                if one_letter in GENERAL_AA:
+                    rama_type = "General"
+                elif one_letter in ("I", "V"):
                     rama_type = "Ile/Val"
-                elif res_name == "GLY":
+                elif one_letter == "G":
                     rama_type = "Gly"
-                elif res_name in PROLINES:
+                elif one_letter == "P":
                     rama_type = "trans-Pro"  # Will check for cis later
+                else:
+                    rama_type = "unknown"
 
                 # Check for pre-Pro
                 if i < len(residues) - 1:
                     next_res = residues[i + 1]
-                    if (
-                        next_res.get_resname() in PROLINES
-                        and res_name not in PROLINES
-                        and res_name != "GLY"
-                    ):
+                    one_letter_next = protein_letters_3to1_extended.get(next_res.get_resname())
+                    if one_letter_next == "P" and one_letter not in ("P", "G"):
                         rama_type = "pre-Pro"
 
                 # Get backbone atoms
@@ -217,9 +189,7 @@ def get_phi_psi(structure):
                     if i > 0:
                         prev_res = residues[i - 1]
                         if "CA" in res and "CA" in prev_res:
-                            dist = np.linalg.norm(
-                                res["CA"].get_coord() - prev_res["CA"].get_coord()
-                            )
+                            dist = np.linalg.norm(res["CA"].get_coord() - prev_res["CA"].get_coord())
                             if dist <= 4.5:
                                 prev_res_c = prev_res["C"] if "C" in prev_res else None
 
@@ -231,19 +201,12 @@ def get_phi_psi(structure):
                     if i < len(residues) - 1:
                         next_res = residues[i + 1]
                         if "CA" in res and "CA" in next_res:
-                            dist = np.linalg.norm(
-                                res["CA"].get_coord() - next_res["CA"].get_coord()
-                            )
+                            dist = np.linalg.norm(res["CA"].get_coord() - next_res["CA"].get_coord())
                             if dist <= 4.5:
                                 next_res_n = next_res["N"] if "N" in next_res else None
 
                     phi = None
-                    if (
-                        prev_res_c is not None
-                        and n is not None
-                        and ca is not None
-                        and c is not None
-                    ):
+                    if prev_res_c is not None and n is not None and ca is not None and c is not None:
                         phi = calc_dihedral(
                             prev_res_c.get_coord(),
                             n.get_coord(),
@@ -252,12 +215,7 @@ def get_phi_psi(structure):
                         )
 
                     psi = None
-                    if (
-                        n is not None
-                        and ca is not None
-                        and c is not None
-                        and next_res_n is not None
-                    ):
+                    if n is not None and ca is not None and c is not None and next_res_n is not None:
                         psi = calc_dihedral(
                             n.get_coord(),
                             ca.get_coord(),
@@ -275,11 +233,7 @@ def get_phi_psi(structure):
                                 n.get_coord(),
                                 ca.get_coord(),
                             )
-                            if (
-                                res_name in PROLINES
-                                and omega is not None
-                                and abs(omega) < 90.0
-                            ):
+                            if one_letter == "P" and omega is not None and abs(omega) < 90.0:
                                 rama_type = "cis-Pro"
 
                     results.append(
@@ -361,22 +315,18 @@ def generate_pdf_report(phi_psi_data, pdb_id, rama_manager):
     Generates a 6-panel Ramachandran PDF report similar to MolProbity/old_script.
     """
     # Filter out residues without phi/psi
-    valid_data = [
-        p for p in phi_psi_data if p["phi"] is not None and p["psi"] is not None
-    ]
+    valid_data = [p for p in phi_psi_data if p["phi"] is not None and p["psi"] is not None]
     if not valid_data:
         raise ValueError("No valid phi/psi data to plot.")
 
     # Create the figure
-    fig, axes = plt.subplots(
-        3, 2, figsize=(8.0, 12.0), layout="constrained", sharex=True, sharey=True
-    )
+    fig, axes = plt.subplots(3, 2, figsize=(8.0, 12.0), layout="constrained", sharex=True, sharey=True)
 
     # Define color for levels
     # levels_colors = ("#5F5FFF", "#57A1EB") # From old script
     levels_colors = ("#7e48db", "#3036e7")  # Matching the web app's purple/blue
 
-    for i, (ax, rama_type) in enumerate(zip(axes.flat, RAMA_KEYS)):
+    for i, (ax, rama_type) in enumerate(zip(axes.flat, RAMA_KEYS, strict=True)):
         # Data for this type
         type_data = [p for p in valid_data if p["rama_type"] == rama_type]
 
@@ -399,12 +349,8 @@ def generate_pdf_report(phi_psi_data, pdb_id, rama_manager):
         # 2. Scatter Points
         if type_data:
             # Non-outliers
-            normal_phis = [
-                p["phi"] for p in type_data if p.get("classification") != "outlier"
-            ]
-            normal_psis = [
-                p["psi"] for p in type_data if p.get("classification") != "outlier"
-            ]
+            normal_phis = [p["phi"] for p in type_data if p.get("classification") != "outlier"]
+            normal_psis = [p["psi"] for p in type_data if p.get("classification") != "outlier"]
 
             if normal_phis:
                 ax.scatter(
@@ -460,9 +406,7 @@ def generate_pdf_report(phi_psi_data, pdb_id, rama_manager):
 
         ax.grid(linestyle="dashed", linewidth=0.5, alpha=0.5)
 
-    fig.suptitle(
-        f"Ramachandran Report: {pdb_id.upper()}", fontsize=16, fontweight="bold"
-    )
+    fig.suptitle(f"Ramachandran Report: {pdb_id.upper()}", fontsize=16, fontweight="bold")
 
     # Save to buffer
     buf = io.BytesIO()
