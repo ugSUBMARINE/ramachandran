@@ -40,6 +40,13 @@ GENERAL_AA = ("A", "C", "D", "E", "F", "H", "K", "L", "M", "N", "Q", "R", "S", "
 ILE_VAL = ("I", "V")
 # fmt: on
 
+# Additional non-standard residues that are not defined by Biopython
+# pyrrolysine
+protein_letters_3to1_extended["XPL"] = "K"
+protein_letters_3to1_extended["PYL"] = "K"
+# selenocysteine
+protein_letters_3to1_extended["SEC"] = "C"
+
 
 class RamachandranManager:
     def __init__(self, data_directory="data"):

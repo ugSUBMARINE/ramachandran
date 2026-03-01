@@ -1,15 +1,17 @@
+import json
 import os
 import uuid
-import json
-from flask import Flask, render_template, request, jsonify, send_file
+
+from flask import Flask, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
+
 from utils import (
     RamachandranManager,
-    parse_structure,
     fetch_structure_file,
-    get_phi_psi,
     generate_csv,
     generate_pdf_report,
+    get_phi_psi,
+    parse_structure,
 )
 
 app = Flask(__name__)
@@ -75,9 +77,7 @@ def process():
             return jsonify({"error": "Failed to fetch PDB ID from RCSB"}), 400
     elif file and file.filename != "":
         filename = secure_filename(file.filename)
-        filepath = os.path.join(
-            app.config["UPLOAD_FOLDER"], f"{uuid.uuid4()}_{filename}"
-        )
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], f"{uuid.uuid4()}_{filename}")
         file.save(filepath)
     else:
         return jsonify({"error": "No PDB ID or file provided"}), 400
@@ -89,9 +89,7 @@ def process():
         # Classify each residue
         for item in phi_psi_data:
             if item["phi"] is not None and item["psi"] is not None:
-                score, category = rama_manager.classify_phipsi(
-                    item["rama_type"], item["phi"], item["psi"]
-                )
+                score, category = rama_manager.classify_phipsi(item["rama_type"], item["phi"], item["psi"])
                 item["score"] = score
                 item["classification"] = category
             else:
@@ -108,9 +106,7 @@ def process():
 
         # Save results to a JSON file for on-demand downloads
         result_id = str(uuid.uuid4())
-        results_path = os.path.join(
-            app.config["UPLOAD_FOLDER"], f"{result_id}_results.json"
-        )
+        results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
         with open(results_path, "w") as f:
             json.dump(
                 {
@@ -138,13 +134,11 @@ def process():
 
 @app.route("/download/csv/<result_id>")
 def download_csv(result_id):
-    results_path = os.path.join(
-        app.config["UPLOAD_FOLDER"], f"{result_id}_results.json"
-    )
+    results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
     if not os.path.exists(results_path):
         return "Result not found", 404
 
-    with open(results_path, "r") as f:
+    with open(results_path) as f:
         data = json.load(f)
 
     csv_content = generate_csv(data["phi_psi"])
@@ -164,13 +158,11 @@ def download_csv(result_id):
 
 @app.route("/download/pdf/<result_id>")
 def download_pdf(result_id):
-    results_path = os.path.join(
-        app.config["UPLOAD_FOLDER"], f"{result_id}_results.json"
-    )
+    results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
     if not os.path.exists(results_path):
         return "Result not found", 404
 
-    with open(results_path, "r") as f:
+    with open(results_path) as f:
         data = json.load(f)
 
     pdf_buf = generate_pdf_report(data["phi_psi"], data["pdb_id"], rama_manager)
