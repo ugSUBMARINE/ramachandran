@@ -1,8 +1,10 @@
 import csv
 import gzip
 import io
+import logging
 import os
 import urllib.request
+from urllib.error import HTTPError, URLError
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -13,6 +15,7 @@ from Bio.PDB.Polypeptide import is_aa
 from scipy import interpolate
 
 matplotlib.use("Agg")  # Use non-interactive backend
+logger = logging.getLogger(__name__)
 
 # Define the Ramachandran plot types and levels
 RAMA_KEYS = ["General", "Ile/Val", "pre-Pro", "Gly", "trans-Pro", "cis-Pro"]
@@ -115,22 +118,49 @@ class RamachandranManager:
         return float(value * 100.0), category
 
 
-def fetch_structure_file(pdb_id, output_dir="temp_pdb"):
+def fetch_structure_file(pdb_id, output_dir="temp_pdb", timeout=15):
     os.makedirs(output_dir, exist_ok=True)
-    pdb_id = pdb_id.lower()
-    url = f"https://files.rcsb.org/download/{pdb_id.upper()}.cif.gz"
-    filepath = os.path.join(output_dir, f"{pdb_id}.cif")
+    pdb_id = pdb_id.strip()
+
+    if not pdb_id:
+        return None, "PDB ID is required."
+
+    # Support both legacy IDs (e.g., 1UBQ) and extended IDs (e.g., pdb_00001abc).
+    if pdb_id.lower().startswith("pdb_"):
+        remote_id = f"pdb_{pdb_id[4:].upper()}"
+        local_id = pdb_id.lower()
+    else:
+        remote_id = pdb_id.upper()
+        local_id = pdb_id.lower()
+
+    url = f"https://files.rcsb.org/download/{remote_id}.cif.gz"
+    filepath = os.path.join(output_dir, f"{local_id}.cif")
 
     try:
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
             if response.status == 200:
                 content = gzip.decompress(response.read()).decode("utf-8")
-                with open(filepath, "w") as f:
+                with open(filepath, "w", encoding="utf-8") as f:
                     f.write(content)
-                return filepath
-    except Exception as e:
-        print(f"Error fetching structure {pdb_id}: {e}")
-    return None
+                return filepath, None
+
+            logger.warning("RCSB returned HTTP %s for %s", response.status, remote_id)
+            return None, f"Failed to fetch structure '{pdb_id}' from RCSB (HTTP {response.status})."
+
+    except HTTPError as e:
+        if e.code == 404:
+            return None, f"Structure '{pdb_id}' was not found in RCSB."
+        logger.warning("HTTP error while fetching %s: %s", remote_id, e)
+        return None, f"Failed to fetch structure '{pdb_id}' from RCSB (HTTP {e.code})."
+    except (URLError, TimeoutError) as e:
+        logger.warning("Network timeout/error while fetching %s: %s", remote_id, e)
+        return None, "Could not reach RCSB within the timeout window. Please try again."
+    except (OSError, UnicodeDecodeError) as e:
+        logger.warning("Invalid compressed content for %s: %s", remote_id, e)
+        return None, f"Received malformed data for structure '{pdb_id}' from RCSB."
+    except Exception:
+        logger.exception("Unexpected error while fetching structure %s", remote_id)
+        return None, f"Unexpected error while fetching structure '{pdb_id}'."
 
 
 def calc_dihedral(a, b, c, d):
@@ -154,6 +184,7 @@ def calc_dihedral(a, b, c, d):
 
 def get_phi_psi(structure):
     results = []
+    skipped_residues = 0
 
     for model_nr, model in enumerate(structure):
         # Only process first model
@@ -268,9 +299,28 @@ def get_phi_psi(structure):
                             "rama_type": rama_type,
                         }
                     )
-                except Exception:
-                    # Fallback for unexpected issues with single residues
+                except (KeyError, ValueError, ZeroDivisionError, FloatingPointError) as err:
+                    skipped_residues += 1
+                    logger.debug(
+                        "Skipping residue due to recoverable error chain=%s resSeq=%s icode=%s: %s",
+                        chain.id,
+                        res.id[1],
+                        res.id[2],
+                        err,
+                    )
                     continue
+                except Exception:
+                    skipped_residues += 1
+                    logger.exception(
+                        "Skipping residue due to unexpected error chain=%s resSeq=%s icode=%s",
+                        chain.id,
+                        res.id[1],
+                        res.id[2],
+                    )
+                    continue
+
+    if skipped_residues:
+        logger.info("Skipped %d residues during phi/psi extraction due to processing errors.", skipped_residues)
 
     return results
 
@@ -285,7 +335,11 @@ def parse_structure(filepath):
     else:
         parser = PDB.PDBParser(QUIET=True)
 
-    structure = parser.get_structure("protein", filepath)
+    try:
+        structure = parser.get_structure("protein", filepath)
+    except Exception as e:
+        raise ValueError("Unable to parse structure file. Please upload a valid PDB or mmCIF file.") from e
+
     return structure
 
 

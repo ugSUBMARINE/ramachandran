@@ -100,16 +100,29 @@ function generateFilters(phiPsi) {
     const types = [...new Set(phiPsi.map(p => p.rama_type))].sort();
 
     const chainContainer = document.getElementById('chain-filters');
-    chainContainer.innerHTML = '<div class="chip active" data-filter="all">All Chains</div>';
+    chainContainer.replaceChildren();
+    const allChainsChip = document.createElement('div');
+    allChainsChip.className = 'chip active';
+    allChainsChip.dataset.filter = 'all';
+    allChainsChip.textContent = 'All Chains';
+    chainContainer.appendChild(allChainsChip);
     chains.forEach(c => {
-        chainContainer.innerHTML += `<div class="chip" data-filter="${c}">${c}</div>`;
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.dataset.filter = c;
+        chip.textContent = c;
+        chainContainer.appendChild(chip);
     });
 
     const typeContainer = document.getElementById('type-filters');
-    typeContainer.innerHTML = '';
+    typeContainer.replaceChildren();
     types.forEach(t => {
         const active = currentFilters.type === t ? 'active' : '';
-        typeContainer.innerHTML += `<div class="chip ${active}" data-filter="${t}">${t}</div>`;
+        const chip = document.createElement('div');
+        chip.className = `chip ${active}`.trim();
+        chip.dataset.filter = t;
+        chip.textContent = t;
+        typeContainer.appendChild(chip);
     });
 
     // Add event listeners
