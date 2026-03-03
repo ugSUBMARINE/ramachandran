@@ -37,7 +37,6 @@ LEVELS = {
 # Define amino acid categories for classification
 # fmt: off
 GENERAL_AA = ("A", "C", "D", "E", "F", "H", "K", "L", "M", "N", "Q", "R", "S", "T", "W", "Y")
-ILE_VAL = ("I", "V")
 # fmt: on
 
 # Additional non-standard residues that are not defined by Biopython
