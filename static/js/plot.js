@@ -1,4 +1,6 @@
 let currentData = null;
+let cachedReferenceData = null;
+let referenceRequestPromise = null;
 let currentFilters = {
     chain: 'all',
     type: 'General'
@@ -45,10 +47,11 @@ async function analyze() {
         });
 
         const result = await response.json();
-        if (result.error) {
+        if (!response.ok || result.error) {
             alert('Error: ' + result.error);
         } else {
-            currentData = result;
+            const referenceData = await ensureReferenceData();
+            currentData = { ...result, reference: referenceData };
             document.getElementById('pdb-id').value = ''; // Clear on success
             displayResults(result);
         }
@@ -62,6 +65,30 @@ async function analyze() {
 
 function showLoading(show) {
     document.getElementById('loading').classList.toggle('hidden', !show);
+}
+
+async function ensureReferenceData() {
+    if (cachedReferenceData) return cachedReferenceData;
+    if (referenceRequestPromise) return referenceRequestPromise;
+
+    referenceRequestPromise = fetch('/reference', { cache: 'force-cache' })
+        .then(async (response) => {
+            if (response.status === 304 && cachedReferenceData) {
+                return cachedReferenceData;
+            }
+            if (!response.ok) {
+                throw new Error('Could not load reference contour data.');
+            }
+
+            const data = await response.json();
+            cachedReferenceData = data;
+            return data;
+        })
+        .finally(() => {
+            referenceRequestPromise = null;
+        });
+
+    return referenceRequestPromise;
 }
 
 function displayResults(data) {

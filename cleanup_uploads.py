@@ -4,13 +4,26 @@ import time
 from datetime import datetime
 
 
-def cleanup_uploads(uploads_dir="uploads", max_age_hours=24):
+def cleanup_uploads(uploads_dir="uploads", max_age_hours=24, logger=None):
     """
     Deletes files in the specified directory that are older than max_age_hours.
     """
+
+    def log_info(message):
+        if logger:
+            logger.info(message)
+        else:
+            print(message)
+
+    def log_error(message):
+        if logger:
+            logger.error(message)
+        else:
+            print(message)
+
     if not os.path.exists(uploads_dir):
-        print(f"Directory {uploads_dir} does not exist. Skipping cleanup.")
-        return
+        log_info(f"Directory {uploads_dir} does not exist. Skipping cleanup.")
+        return {"deleted": 0, "errors": 0}
 
     now = time.time()
     max_age_seconds = max_age_hours * 3600
@@ -18,7 +31,7 @@ def cleanup_uploads(uploads_dir="uploads", max_age_hours=24):
     count = 0
     errors = 0
 
-    print(f"[{datetime.now()}] Starting cleanup of {uploads_dir} (older than {max_age_hours} hours)...")
+    log_info(f"Starting cleanup of {uploads_dir} (older than {max_age_hours} hours)...")
 
     for filename in os.listdir(uploads_dir):
         # Skip hidden files like .DS_Store or .gitkeep
@@ -36,13 +49,14 @@ def cleanup_uploads(uploads_dir="uploads", max_age_hours=24):
         if (now - file_age) > max_age_seconds:
             try:
                 os.remove(filepath)
-                print(f"Deleted: {filename}")
+                log_info(f"Deleted: {filename}")
                 count += 1
             except Exception as e:
-                print(f"Error deleting {filename}: {e}")
+                log_error(f"Error deleting {filename}: {e}")
                 errors += 1
 
-    print(f"Cleanup finished. Deleted {count} files. Errors: {errors}.")
+    log_info(f"Cleanup finished. Deleted {count} files. Errors: {errors}.")
+    return {"deleted": count, "errors": errors}
 
 
 if __name__ == "__main__":

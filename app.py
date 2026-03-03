@@ -1,13 +1,18 @@
+import hashlib
 import json
+import logging
 import os
 import re
+import threading
+import time
 import uuid
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, g, has_request_context, jsonify, render_template, request, send_file
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
+from cleanup_uploads import cleanup_uploads
 from utils import (
     RamachandranManager,
     fetch_structure_file,
@@ -28,10 +33,93 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 LEGACY_PDB_ID_RE = re.compile(r"^[1-9][A-Za-z0-9]{3}$")
 EXTENDED_PDB_ID_RE = re.compile(r"^pdb_[A-Za-z0-9]{8}$", flags=re.IGNORECASE)
 ALLOWED_UPLOAD_SUFFIXES = {".pdb", ".cif", ".mmcif"}
+CLEANUP_INTERVAL_SECONDS = 3600
+CLEANUP_MAX_AGE_HOURS = 24
+REFERENCE_CACHE_MAX_AGE_SECONDS = 86400
+
+_last_cleanup_ts = 0.0
+_cleanup_lock = threading.Lock()
 
 # Initialize the Ramachandran data manager
 # Assuming data is in 'data' directory relative to the project root
 rama_manager = RamachandranManager(data_directory="data")
+
+REFERENCE_DATA = {
+    key: {
+        "phi": value["grid"]["phi"],
+        "psi": value["grid"]["psi"],
+        "z": value["grid"]["z"],
+        "levels": value["levels"],
+    }
+    for key, value in rama_manager.rama_data.items()
+}
+REFERENCE_JSON = json.dumps(REFERENCE_DATA, separators=(",", ":"), sort_keys=True)
+REFERENCE_ETAG = hashlib.sha256(REFERENCE_JSON.encode("utf-8")).hexdigest()
+
+
+class RequestFormatter(logging.Formatter):
+    def format(self, record):
+        if has_request_context():
+            record.request_id = getattr(g, "request_id", "-")
+        else:
+            record.request_id = "-"
+        return super().format(record)
+
+
+def configure_logging():
+    formatter = RequestFormatter("%(asctime)s %(levelname)s request_id=%(request_id)s %(name)s: %(message)s")
+    root_logger = logging.getLogger()
+
+    if root_logger.handlers:
+        for handler in root_logger.handlers:
+            handler.setFormatter(formatter)
+    else:
+        root_handler = logging.StreamHandler()
+        root_handler.setFormatter(formatter)
+        root_logger.addHandler(root_handler)
+
+    root_logger.setLevel(logging.INFO)
+
+    if not app.logger.handlers:
+        app_handler = logging.StreamHandler()
+        app_handler.setFormatter(formatter)
+        app.logger.addHandler(app_handler)
+
+    for handler in app.logger.handlers:
+        handler.setFormatter(formatter)
+    app.logger.setLevel(logging.INFO)
+    app.logger.propagate = False
+
+
+def maybe_cleanup_upload_folder():
+    global _last_cleanup_ts
+
+    now = time.time()
+    # Fast-path check avoids lock contention when cleanup is not due.
+    if now - _last_cleanup_ts < CLEANUP_INTERVAL_SECONDS:
+        return
+
+    if not _cleanup_lock.acquire(blocking=False):
+        return
+
+    try:
+        now = time.time()
+        # Re-check under lock: another worker may have run cleanup already.
+        if now - _last_cleanup_ts < CLEANUP_INTERVAL_SECONDS:
+            return
+
+        app.logger.info("Running periodic upload cleanup.")
+        cleanup_uploads(
+            uploads_dir=app.config["UPLOAD_FOLDER"],
+            max_age_hours=CLEANUP_MAX_AGE_HOURS,
+            logger=app.logger,
+        )
+        _last_cleanup_ts = now
+    finally:
+        _cleanup_lock.release()
+
+
+configure_logging()
 
 
 @app.route("/")
@@ -55,6 +143,16 @@ def info():
             "description": "A web-based Ramachandran plot analysis and visualization tool for protein structures.",
         }
     ), 200
+
+
+@app.route("/reference")
+def reference():
+    response = app.response_class(REFERENCE_JSON, mimetype="application/json")
+    response.set_etag(REFERENCE_ETAG)
+    response.cache_control.public = True
+    response.cache_control.max_age = REFERENCE_CACHE_MAX_AGE_SECONDS
+    response.make_conditional(request)
+    return response
 
 
 @app.route("/robots.txt")
@@ -89,8 +187,23 @@ def is_allowed_upload(filename):
     return suffix in ALLOWED_UPLOAD_SUFFIXES
 
 
+@app.before_request
+def attach_request_id():
+    external_request_id = (request.headers.get("X-Request-ID") or "").strip()
+    g.request_id = external_request_id[:64] if external_request_id else uuid.uuid4().hex
+
+
+@app.after_request
+def add_request_id_header(response):
+    if getattr(g, "request_id", None):
+        response.headers["X-Request-ID"] = g.request_id
+    return response
+
+
 @app.route("/process", methods=["POST"])
 def process():
+    maybe_cleanup_upload_folder()
+
     pdb_id = (request.form.get("pdb_id") or "").strip()
     file = request.files.get("pdb_file")
 
@@ -98,10 +211,7 @@ def process():
 
     if pdb_id:
         if not is_valid_pdb_id(pdb_id):
-            error_message = (
-                "Invalid PDB ID format. Use legacy IDs like '1UBQ' or "
-                "extended IDs like 'pdb_00001abc'."
-            )
+            error_message = "Invalid PDB ID format. Use legacy IDs like '1UBQ' or extended IDs like 'pdb_00001abc'."
             return (
                 jsonify({"error": error_message}),
                 400,
@@ -143,14 +253,6 @@ def process():
                 item["score"] = None
                 item["classification"] = None
 
-        # Prepare reference data for the frontend (contours)
-        # We only send the grid for the types present in the structure, or all if preferred
-        # For simplicity, let's send reference data for the 6 standard types
-        reference_data = {}
-        for key in rama_manager.rama_data:
-            reference_data[key] = rama_manager.rama_data[key]["grid"]
-            reference_data[key]["levels"] = rama_manager.rama_data[key]["levels"]
-
         # Save results to a JSON file for on-demand downloads
         result_id = str(uuid.uuid4())
         results_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{result_id}_results.json")
@@ -167,7 +269,6 @@ def process():
             "result_id": result_id,
             "pdb_id": pdb_id if pdb_id else file.filename,
             "phi_psi": phi_psi_data,
-            "reference": reference_data,
         }
 
         return jsonify(response)
