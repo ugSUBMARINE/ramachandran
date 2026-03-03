@@ -94,11 +94,17 @@ async function ensureReferenceData() {
 function displayResults(data) {
     // Reset filters to defaults for new structure
     currentFilters.chain = 'all';
-    currentFilters.type = 'General';
+    currentFilters.type = getPreferredType(data.phi_psi);
 
     document.getElementById('results-section').classList.remove('hidden');
     generateFilters(data.phi_psi);
     renderPlot();
+}
+
+function getPreferredType(phiPsi) {
+    const types = [...new Set(phiPsi.map(p => p.rama_type))].sort();
+    if (types.includes('General')) return 'General';
+    return types[0] || 'General';
 }
 
 function updateStats(phiPsi, prefix = '') {
@@ -125,6 +131,9 @@ function updateStats(phiPsi, prefix = '') {
 function generateFilters(phiPsi) {
     const chains = [...new Set(phiPsi.map(p => p.chain))].sort();
     const types = [...new Set(phiPsi.map(p => p.rama_type))].sort();
+    if (!types.includes(currentFilters.type)) {
+        currentFilters.type = getPreferredType(phiPsi);
+    }
 
     const chainContainer = document.getElementById('chain-filters');
     chainContainer.replaceChildren();

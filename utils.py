@@ -98,7 +98,7 @@ class RamachandranManager:
 
     def classify_phipsi(self, rama_type, phi, psi):
         if rama_type not in self.rama_data:
-            return 0.0, "unknown"
+            return 0.0, "outlier"
 
         f = self.rama_data[rama_type]["f"]
         levels = self.rama_data[rama_type]["levels"]

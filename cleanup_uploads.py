@@ -1,7 +1,6 @@
 import argparse
 import os
 import time
-from datetime import datetime
 
 
 def cleanup_uploads(uploads_dir="uploads", max_age_hours=24, logger=None):
