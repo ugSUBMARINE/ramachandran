@@ -162,9 +162,22 @@ def get_phi_psi(structure):
             break
 
         for chain in model:
-            residues = [res for res in chain if is_aa(res)]
+            # Get a list of residues, filtering out non-amino acids
+            # treating disordered residues correctly
+            residues = []
+            disordered_residues = set()
+            for res in chain:
+                if is_aa(res):
+                    if res.is_disordered():
+                        # Biopython sometimes misrepresent disordered residues,
+                        # E.g. in 1L2Q residue 202 is present twice
+                        # We only keep the first occurence.
+                        res_id = res.id[1:]  # (resSeq, icode)
+                        if res_id in disordered_residues:
+                            continue
+                        disordered_residues.add(res_id)
+                    residues.append(res)
 
-            # Check for chain breaks by CA-CA distance
             for i, res in enumerate(residues):
                 res_name = res.get_resname()
                 # get the one-letter code of the amino acid
@@ -195,6 +208,7 @@ def get_phi_psi(structure):
                     prev_res_c = None
                     if i > 0:
                         prev_res = residues[i - 1]
+                        # Check for chain breaks by CA-CA distance
                         if "CA" in res and "CA" in prev_res:
                             dist = np.linalg.norm(res["CA"].get_coord() - prev_res["CA"].get_coord())
                             if dist <= 4.5:
