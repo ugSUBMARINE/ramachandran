@@ -55,6 +55,19 @@ def test_fetch_structure_file_rejects_empty_pdb_id(tmp_path):
     assert error == "PDB ID is required."
 
 
+def test_fetch_structure_file_uses_cached_file_without_network(monkeypatch, tmp_path):
+    cached = tmp_path / "1ubq.cif"
+    cached.write_text("data_cached_pdb", encoding="utf-8")
+    monkeypatch.setattr(
+        "utils.urllib.request.urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("network should not be called")),
+    )
+
+    path, error = fetch_structure_file("1UBQ", output_dir=str(tmp_path))
+    assert error is None
+    assert path == str(cached)
+
+
 def test_fetch_alphafold_model_downloads_latest_prediction(monkeypatch, tmp_path):
     class FakeResponse:
         def __init__(self, body, status=200):
@@ -109,6 +122,19 @@ def test_fetch_alphafold_model_handles_empty_metadata(monkeypatch, tmp_path):
     path, error = fetch_alphafold_model("P69905", output_dir=str(tmp_path))
     assert path is None
     assert error == "No AlphaFold prediction found for UniProt accession 'P69905'."
+
+
+def test_fetch_alphafold_model_uses_cached_file_without_network(monkeypatch, tmp_path):
+    cached = tmp_path / "af-p69905.cif"
+    cached.write_text("data_cached_af", encoding="utf-8")
+    monkeypatch.setattr(
+        "utils.urllib.request.urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("network should not be called")),
+    )
+
+    path, error = fetch_alphafold_model("P69905", output_dir=str(tmp_path))
+    assert error is None
+    assert path == str(cached)
 
 
 def test_get_phi_psi_produces_valid_angles(tripeptide_path):

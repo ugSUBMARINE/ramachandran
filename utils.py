@@ -92,6 +92,10 @@ def _model_sort_key(prediction):
     return version_value, created_dt, release_dt
 
 
+def _has_cached_structure(filepath):
+    return os.path.exists(filepath) and os.path.getsize(filepath) > 0
+
+
 def fetch_alphafold_model(accession, output_dir="temp_pdb", timeout=15):
     os.makedirs(output_dir, exist_ok=True)
     accession = accession.strip().upper()
@@ -104,6 +108,9 @@ def fetch_alphafold_model(accession, output_dir="temp_pdb", timeout=15):
     api_url = f"{ALPHAFOLD_API_BASE_URL}{accession}"
     local_filename = f"af-{accession.lower()}.cif"
     filepath = os.path.join(output_dir, local_filename)
+    if _has_cached_structure(filepath):
+        logger.info("Using cached AlphaFold model for accession=%s at %s", accession, filepath)
+        return filepath, None
 
     try:
         with urllib.request.urlopen(api_url, timeout=timeout) as response:
@@ -246,6 +253,9 @@ def fetch_structure_file(pdb_id, output_dir="temp_pdb", timeout=15):
 
     url = f"https://files.rcsb.org/download/{remote_id}.cif.gz"
     filepath = os.path.join(output_dir, f"{local_id}.cif")
+    if _has_cached_structure(filepath):
+        logger.info("Using cached RCSB structure for pdb_id=%s at %s", pdb_id, filepath)
+        return filepath, None
 
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
