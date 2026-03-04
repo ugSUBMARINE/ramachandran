@@ -15,10 +15,12 @@ from werkzeug.utils import secure_filename
 from cleanup_uploads import cleanup_uploads
 from utils import (
     RamachandranManager,
+    fetch_alphafold_model,
     fetch_structure_file,
     generate_csv,
     generate_pdf_report,
     get_phi_psi,
+    is_valid_uniprot_accession,
     parse_structure,
 )
 
@@ -26,6 +28,7 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB limit
 app.config["PDB_FETCH_TIMEOUT_SECONDS"] = 15
+app.config["ALPHAFOLD_FETCH_TIMEOUT_SECONDS"] = 15
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
@@ -204,25 +207,33 @@ def add_request_id_header(response):
 def process():
     maybe_cleanup_upload_folder()
 
-    pdb_id = (request.form.get("pdb_id") or "").strip()
+    structure_id = (request.form.get("pdb_id") or "").strip()
     file = request.files.get("pdb_file")
 
     filepath = None
 
-    if pdb_id:
-        if not is_valid_pdb_id(pdb_id):
-            error_message = "Invalid PDB ID format. Use legacy IDs like '1UBQ' or extended IDs like 'pdb_00001abc'."
-            return (
-                jsonify({"error": error_message}),
-                400,
+    if structure_id:
+        if is_valid_pdb_id(structure_id):
+            filepath, fetch_error = fetch_structure_file(
+                structure_id,
+                output_dir=app.config["UPLOAD_FOLDER"],
+                timeout=app.config["PDB_FETCH_TIMEOUT_SECONDS"],
             )
-        filepath, fetch_error = fetch_structure_file(
-            pdb_id,
-            output_dir=app.config["UPLOAD_FOLDER"],
-            timeout=app.config["PDB_FETCH_TIMEOUT_SECONDS"],
-        )
+        elif is_valid_uniprot_accession(structure_id):
+            filepath, fetch_error = fetch_alphafold_model(
+                structure_id,
+                output_dir=app.config["UPLOAD_FOLDER"],
+                timeout=app.config["ALPHAFOLD_FETCH_TIMEOUT_SECONDS"],
+            )
+        else:
+            error_message = (
+                "Invalid structure identifier format. Use a PDB ID (e.g., '1UBQ' or 'pdb_00001abc') "
+                "or a UniProt accession (e.g., 'P69905')."
+            )
+            return jsonify({"error": error_message}), 400
+
         if not filepath:
-            return jsonify({"error": fetch_error or "Failed to fetch structure from RCSB."}), 400
+            return jsonify({"error": fetch_error or "Failed to fetch structure from remote source."}), 400
     elif file and file.filename != "":
         filename = secure_filename(file.filename)
         if not filename:
@@ -259,7 +270,7 @@ def process():
         with open(results_path, "w") as f:
             json.dump(
                 {
-                    "pdb_id": pdb_id if pdb_id else file.filename,
+                    "pdb_id": structure_id if structure_id else file.filename,
                     "phi_psi": phi_psi_data,
                 },
                 f,
@@ -267,7 +278,7 @@ def process():
 
         response = {
             "result_id": result_id,
-            "pdb_id": pdb_id if pdb_id else file.filename,
+            "pdb_id": structure_id if structure_id else file.filename,
             "phi_psi": phi_psi_data,
         }
 
@@ -278,7 +289,7 @@ def process():
             "Rejected structure input: %s",
             err,
             extra={
-                "pdb_id": pdb_id or None,
+                "pdb_id": structure_id or None,
                 "uploaded_filename": file.filename if file else None,
                 "filepath": filepath,
             },
@@ -288,7 +299,7 @@ def process():
         app.logger.exception(
             "Failed to process structure",
             extra={
-                "pdb_id": pdb_id or None,
+                "pdb_id": structure_id or None,
                 "uploaded_filename": file.filename if file else None,
                 "filepath": filepath,
             },

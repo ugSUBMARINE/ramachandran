@@ -1,7 +1,15 @@
 import pytest
 
 from app import is_allowed_upload, is_valid_pdb_id
-from utils import RamachandranManager, fetch_structure_file, generate_csv, get_phi_psi, parse_structure
+from utils import (
+    RamachandranManager,
+    fetch_alphafold_model,
+    fetch_structure_file,
+    generate_csv,
+    get_phi_psi,
+    is_valid_uniprot_accession,
+    parse_structure,
+)
 
 
 def test_is_valid_pdb_id_accepts_legacy_and_extended_formats():
@@ -14,6 +22,18 @@ def test_is_valid_pdb_id_rejects_invalid_formats():
     assert not is_valid_pdb_id("ABCD")
     assert not is_valid_pdb_id("0ABC")
     assert not is_valid_pdb_id("123")
+
+
+def test_is_valid_uniprot_accession_accepts_known_formats():
+    assert is_valid_uniprot_accession("P69905")
+    assert is_valid_uniprot_accession("A0A024RBG1")
+    assert is_valid_uniprot_accession("q8n158")
+
+
+def test_is_valid_uniprot_accession_rejects_invalid_formats():
+    assert not is_valid_uniprot_accession("1UBQ")
+    assert not is_valid_uniprot_accession("INVALID")
+    assert not is_valid_uniprot_accession("P1234")
 
 
 def test_is_allowed_upload_accepts_supported_extensions():
@@ -33,6 +53,62 @@ def test_fetch_structure_file_rejects_empty_pdb_id(tmp_path):
     path, error = fetch_structure_file("   ", output_dir=str(tmp_path))
     assert path is None
     assert error == "PDB ID is required."
+
+
+def test_fetch_alphafold_model_downloads_latest_prediction(monkeypatch, tmp_path):
+    class FakeResponse:
+        def __init__(self, body, status=200):
+            self._body = body
+            self.status = status
+
+        def read(self):
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(url, timeout=15):
+        if "api/prediction" in url:
+            return FakeResponse(
+                b'[{"latestVersion": 2, "cifUrl": "https://alphafold.ebi.ac.uk/files/new.cif"},'
+                b' {"latestVersion": 1, "cifUrl": "https://alphafold.ebi.ac.uk/files/old.cif"}]'
+            )
+        if url.endswith("new.cif"):
+            return FakeResponse(b"data_mock_cif")
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr("utils.urllib.request.urlopen", fake_urlopen)
+
+    path, error = fetch_alphafold_model("P69905", output_dir=str(tmp_path))
+    assert error is None
+    assert path is not None
+    assert path.endswith("af-p69905.cif")
+    assert (tmp_path / "af-p69905.cif").read_bytes() == b"data_mock_cif"
+
+
+def test_fetch_alphafold_model_handles_empty_metadata(monkeypatch, tmp_path):
+    class FakeResponse:
+        def __init__(self, body, status=200):
+            self._body = body
+            self.status = status
+
+        def read(self):
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("utils.urllib.request.urlopen", lambda *_args, **_kwargs: FakeResponse(b"[]"))
+
+    path, error = fetch_alphafold_model("P69905", output_dir=str(tmp_path))
+    assert path is None
+    assert error == "No AlphaFold prediction found for UniProt accession 'P69905'."
 
 
 def test_get_phi_psi_produces_valid_angles(tripeptide_path):

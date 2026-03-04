@@ -31,7 +31,7 @@ async function analyze() {
     const pdbFile = document.getElementById('pdb-file').files[0];
 
     if (!pdbId && !pdbFile) {
-        alert('Please provide a PDB ID or upload a file.');
+        alert('Please provide a PDB ID, UniProt accession, or upload a file.');
         return;
     }
 

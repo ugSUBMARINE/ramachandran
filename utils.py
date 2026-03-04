@@ -1,9 +1,12 @@
 import csv
 import gzip
 import io
+import json
 import logging
 import os
+import re
 import urllib.request
+from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
 
 import matplotlib
@@ -42,12 +45,120 @@ LEVELS = {
 GENERAL_AA = ("A", "C", "D", "E", "F", "H", "K", "L", "M", "N", "Q", "R", "S", "T", "W", "Y")
 # fmt: on
 
+UNIPROT_ACCESSION_RE = re.compile(
+    r"[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}",
+    flags=re.IGNORECASE,
+)
+ALPHAFOLD_API_BASE_URL = "https://alphafold.ebi.ac.uk/api/prediction/"
+
 # Additional non-standard residues that are not defined by Biopython
 # pyrrolysine
 protein_letters_3to1_extended["XPL"] = "K"
 protein_letters_3to1_extended["PYL"] = "K"
 # selenocysteine
 protein_letters_3to1_extended["SEC"] = "C"
+
+
+def is_valid_uniprot_accession(value):
+    if not value:
+        return False
+    return bool(UNIPROT_ACCESSION_RE.fullmatch(value.strip()))
+
+
+def _parse_iso_datetime(value):
+    if not value or not isinstance(value, str):
+        return datetime.min.replace(tzinfo=UTC)
+
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _model_sort_key(prediction):
+    version = prediction.get("latestVersion") or prediction.get("modelVersion") or 0
+    try:
+        version_value = int(version)
+    except (TypeError, ValueError):
+        version_value = 0
+
+    created_dt = _parse_iso_datetime(prediction.get("modelCreatedDate"))
+    release_dt = _parse_iso_datetime(prediction.get("releaseDate"))
+    return version_value, created_dt, release_dt
+
+
+def fetch_alphafold_model(accession, output_dir="temp_pdb", timeout=15):
+    os.makedirs(output_dir, exist_ok=True)
+    accession = accession.strip().upper()
+
+    if not accession:
+        return None, "UniProt accession is required."
+    if not is_valid_uniprot_accession(accession):
+        return None, f"Invalid UniProt accession format: '{accession}'."
+
+    api_url = f"{ALPHAFOLD_API_BASE_URL}{accession}"
+    local_filename = f"af-{accession.lower()}.cif"
+    filepath = os.path.join(output_dir, local_filename)
+
+    try:
+        with urllib.request.urlopen(api_url, timeout=timeout) as response:
+            payload_bytes = response.read()
+    except HTTPError as e:
+        if e.code == 404:
+            return None, f"No AlphaFold prediction found for UniProt accession '{accession}'."
+        logger.warning("AlphaFold API HTTP error for %s: %s", accession, e)
+        return None, f"Failed to query AlphaFold metadata for '{accession}' (HTTP {e.code})."
+    except (URLError, TimeoutError) as e:
+        logger.warning("Network timeout/error while querying AlphaFold API for %s: %s", accession, e)
+        return None, "Could not reach the AlphaFold API within the timeout window. Please try again."
+    except Exception:
+        logger.exception("Unexpected error while querying AlphaFold API for %s", accession)
+        return None, f"Unexpected error while querying AlphaFold for '{accession}'."
+
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        logger.warning("Invalid AlphaFold API payload for %s: %s", accession, e)
+        return None, f"Received malformed metadata for UniProt accession '{accession}'."
+
+    if not isinstance(payload, list) or not payload:
+        return None, f"No AlphaFold prediction found for UniProt accession '{accession}'."
+
+    best_prediction = max(payload, key=_model_sort_key)
+    cif_url = best_prediction.get("cifUrl")
+    if not cif_url:
+        return None, f"AlphaFold metadata for '{accession}' did not include a CIF download URL."
+
+    try:
+        with urllib.request.urlopen(cif_url, timeout=timeout) as response:
+            cif_bytes = response.read()
+            if response.status != 200:
+                return None, f"Failed to download AlphaFold model for '{accession}' (HTTP {response.status})."
+    except HTTPError as e:
+        if e.code == 404:
+            return None, f"AlphaFold model file for '{accession}' was not found."
+        logger.warning("AlphaFold CIF download HTTP error for %s: %s", accession, e)
+        return None, f"Failed to download AlphaFold model for '{accession}' (HTTP {e.code})."
+    except (URLError, TimeoutError) as e:
+        logger.warning("Network timeout/error while downloading AlphaFold CIF for %s: %s", accession, e)
+        return None, "Could not download the AlphaFold model within the timeout window. Please try again."
+    except Exception:
+        logger.exception("Unexpected error while downloading AlphaFold CIF for %s", accession)
+        return None, f"Unexpected error while downloading AlphaFold model for '{accession}'."
+
+    try:
+        with open(filepath, "wb") as f:
+            f.write(cif_bytes)
+    except OSError as e:
+        logger.warning("Failed to save AlphaFold model for %s: %s", accession, e)
+        return None, "Could not store the downloaded AlphaFold model locally."
+
+    return filepath, None
 
 
 class RamachandranManager:

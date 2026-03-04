@@ -34,7 +34,7 @@ def test_process_requires_input(client):
 def test_process_rejects_invalid_pdb_id(client):
     response = client.post("/process", data={"pdb_id": "ABCD"})
     assert response.status_code == 400
-    assert "Invalid PDB ID format" in response.get_json()["error"]
+    assert "Invalid structure identifier format" in response.get_json()["error"]
 
 
 def test_process_rejects_unsupported_upload_extension(client):
@@ -54,6 +54,15 @@ def test_process_handles_pdb_fetch_errors(client, app_env, monkeypatch):
     response = client.post("/process", data={"pdb_id": "1UBQ"})
     assert response.status_code == 400
     assert response.get_json()["error"] == "Fetch failed"
+
+
+def test_process_handles_uniprot_fetch_errors(client, app_env, monkeypatch):
+    app_module, _ = app_env
+    monkeypatch.setattr(app_module, "fetch_alphafold_model", lambda *_, **__: (None, "AF fetch failed"))
+
+    response = client.post("/process", data={"pdb_id": "P69905"})
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "AF fetch failed"
 
 
 def test_process_upload_returns_result_id_and_persists_result(client, upload_dir, tripeptide_path):

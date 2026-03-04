@@ -10,7 +10,7 @@ A web-based application for analyzing and visualizing Ramachandran plots of prot
 
 ## Features
 
-- **PDB/mmCIF Support**: Upload your own structure files or fetch them directly from the RCSB PDB by ID.
+- **PDB/mmCIF + UniProt Support**: Upload your own structure files, fetch structures from the RCSB PDB by ID, or fetch AlphaFold models via UniProt accession.
 - **Accurate Classification**: Uses reference distributions derived from the **Top8000** dataset of high-quality protein structures. These distributions are sourced from the [Richardson Lab's reference data repository](https://github.com/rlabduke/reference_data) and cover 6 specific residue types:
   - General
   - Ile/Val
@@ -72,6 +72,11 @@ The application will be available at `http://localhost:5001`.
 **Analyze a structure (PDB ID):**
 ```bash
 curl -X POST -F "pdb_id=1UBQ" http://127.0.0.1:5001/process
+```
+
+**Analyze a structure (UniProt accession, fetched from AlphaFold DB):**
+```bash
+curl -X POST -F "pdb_id=P69905" http://127.0.0.1:5001/process
 ```
 
 **Download results (CSV):**
